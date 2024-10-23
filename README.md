@@ -13,7 +13,10 @@ typst compile protocol.typ
 To easily annotate the dataset, run the rust program with:
 
 ```sh
-cargo run -- <dataset_path>
+# build the app
+cargo build --release
+# run the app
+./target/release/apollo <dataset_path>
 ```
 
 The annotation is automatically saved in `annotation.toml`.

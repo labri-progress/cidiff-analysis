@@ -1,8 +1,10 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs, path::Path, usize};
 
 use copypasta::{ClipboardContext, ClipboardProvider};
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    crossterm::event::{
+        Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind,
+    },
     layout::{Alignment, Constraint, Layout, Margin, Rect},
     style::{Color, Style},
     symbols::{border, scrollbar},
@@ -20,7 +22,7 @@ pub trait AppState {
     fn handle_input(
         &mut self,
         area: Rect,
-        event: &KeyEvent,
+        event: &Event,
         clipboard: &mut ClipboardContext,
     ) -> WhatToDo;
     fn draw(&self, frame: &mut Frame);
@@ -49,11 +51,11 @@ impl<'a> AppState for FileChooserState<'a> {
     fn handle_input(
         &mut self,
         area: Rect,
-        key: &KeyEvent,
+        e: &Event,
         clipboard: &mut ClipboardContext,
     ) -> WhatToDo {
-        if key.kind == KeyEventKind::Press {
-            match key.code {
+        match e {
+            Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char('q') => return WhatToDo::Exit,
                 KeyCode::Char('j') => self.highlighted += 1,
                 KeyCode::Char('k') => self.highlighted = self.highlighted.saturating_sub(1),
@@ -77,16 +79,17 @@ impl<'a> AppState for FileChooserState<'a> {
                     return WhatToDo::OpenFile(self.log_paths[self.highlighted].to_string())
                 }
                 _ => (),
-            }
-            if self.highlighted >= self.log_paths.len() {
-                self.highlighted = self.log_paths.len() - 1;
-            }
-            if self.start > self.highlighted {
-                self.start = self.highlighted;
-            }
-            if self.start + area.height as usize - 4 < self.highlighted {
-                self.start = self.highlighted - (area.height as usize - 4);
-            }
+            },
+            _ => {}
+        }
+        if self.highlighted >= self.log_paths.len() {
+            self.highlighted = self.log_paths.len() - 1;
+        }
+        if self.start > self.highlighted {
+            self.start = self.highlighted;
+        }
+        if self.start + area.height as usize - 4 < self.highlighted {
+            self.start = self.highlighted - (area.height as usize - 4);
         }
         WhatToDo::StayOnSameState
     }
@@ -171,9 +174,9 @@ impl FileOpenedState {
 }
 
 impl AppState for FileOpenedState {
-    fn handle_input(&mut self, area: Rect, key: &KeyEvent, _: &mut ClipboardContext) -> WhatToDo {
-        if key.kind == KeyEventKind::Press {
-            match key.code {
+    fn handle_input(&mut self, area: Rect, e: &Event, _: &mut ClipboardContext) -> WhatToDo {
+        match e {
+            Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char('q') => {
                     if self
                         .annotations
@@ -217,7 +220,23 @@ impl AppState for FileOpenedState {
                         .or_insert(vec![self.highlighted]);
                 }
                 _ => (),
-            }
+            },
+            Event::Mouse(mouse) => match mouse.kind {
+                MouseEventKind::ScrollUp => {
+                    if self.start >= 2 {
+                        self.start = self.start.saturating_sub(2);
+                        self.highlighted = self.highlighted.saturating_sub(2);
+                    }
+                }
+                MouseEventKind::ScrollDown => {
+                    if self.start + 2 + area.height as usize - 4 < self.lines.len() {
+                        self.start += 2;
+                        self.highlighted += 2;
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
         }
         if self.highlighted >= self.lines.len() {
             self.highlighted = self.lines.len() - 1;

@@ -13,7 +13,10 @@ use copypasta::ClipboardContext;
 use indicatif::ProgressStyle;
 use rand::{Rng, SeedableRng};
 use ratatui::{
-    crossterm::event::{self},
+    crossterm::{
+        event::{self, DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture},
+        execute,
+    },
     DefaultTerminal,
 };
 use states::{AppState, FileChooserState, FileOpenedState};
@@ -29,8 +32,10 @@ fn main() -> io::Result<()> {
     let log_paths = list_log_paths(&args.dataset);
     let annotations = load_annotations("annotations.toml");
     let mut terminal = ratatui::init();
+    execute!(std::io::stdout(), EnableFocusChange, EnableMouseCapture)?;
     terminal.clear()?;
     let app_result = run(terminal, &args.dataset, log_paths, annotations);
+    execute!(std::io::stdout(), DisableFocusChange, DisableMouseCapture)?;
     match app_result {
         Ok(annotation) => {
             save_annotations("annotations.toml", annotation);
@@ -59,21 +64,20 @@ fn run(
             state.draw(frame);
         })?;
         let area = completer_frames.area;
-        if let event::Event::Key(key) = event::read()? {
-            let what_to_do = state.handle_input(area, &key, &mut clipboard);
-            match what_to_do {
-                WhatToDo::Exit => return Ok(state.annotations()),
-                WhatToDo::StayOnSameState => {}
-                WhatToDo::OpenFile(log_path) => {
-                    state = Box::new(FileOpenedState::new(
-                        dataset_path,
-                        log_path,
-                        state.annotations(),
-                    ));
-                }
-                WhatToDo::ListDir => {
-                    state = Box::new(FileChooserState::new(&log_paths, state.annotations()));
-                }
+        let e = event::read()?;
+        let what_to_do = state.handle_input(area, &e, &mut clipboard);
+        match what_to_do {
+            WhatToDo::Exit => return Ok(state.annotations()),
+            WhatToDo::StayOnSameState => {}
+            WhatToDo::OpenFile(log_path) => {
+                state = Box::new(FileOpenedState::new(
+                    dataset_path,
+                    log_path,
+                    state.annotations(),
+                ));
+            }
+            WhatToDo::ListDir => {
+                state = Box::new(FileChooserState::new(&log_paths, state.annotations()));
             }
         }
     }

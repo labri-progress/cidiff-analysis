@@ -9,7 +9,7 @@ edition = "2021"
 clap = { version = "4.5.20", features = ["derive"] }
 copypasta = "0.10.1"
 indicatif = "0.17.8"
-linecount = "0.1.0"
+linecount = { git = "https://github.com/eclarke/linecount.git", version = "0.2.0", features = ["runtime-dispatch-simd"] }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 ratatui = "0.28.1"
