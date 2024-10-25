@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 pub struct PathListWidget<'a> {
-    lines: &'a Vec<&'a str>,
+    paths: &'a Vec<&'a str>,
     start: usize,
     highlighted: usize,
     annotated: Vec<&'a str>,
@@ -15,7 +15,7 @@ pub struct PathListWidget<'a> {
 impl<'a> PathListWidget<'a> {
     pub fn new(files: &'a Vec<&'a str>) -> Self {
         Self {
-            lines: files,
+            paths: files,
             start: 0,
             highlighted: 0,
             annotated: vec![],
@@ -45,7 +45,10 @@ impl<'a> Widget for PathListWidget<'a> {
     {
         for i in 0..area.height {
             let index = i as usize + self.start;
-            let annotated = self.annotated.contains(&self.lines[index]);
+            if index >= self.paths.len() {
+                break;
+            }
+            let annotated = self.annotated.contains(&self.paths[index]);
             let style = if annotated {
                 Style::new().fg(Color::Green)
             } else {
@@ -59,7 +62,7 @@ impl<'a> Widget for PathListWidget<'a> {
             let line = Line::from(vec![
                 Span::styled(if self.highlighted == index { ">" } else { " " }, style),
                 Span::styled(if annotated { "✓" } else { " " }, style),
-                Span::styled(self.lines[index], style),
+                Span::styled(self.paths[index], style),
             ]);
             buf.set_line(area.x, area.y + i, &line, area.width);
         }
@@ -108,6 +111,9 @@ impl<'a> Widget for LogFileWdiget<'a> {
     {
         for i in 0..area.height {
             let index = i as usize + self.start;
+            if index >= self.lines.len() {
+                break;
+            }
             let annotated = self.annotated.map(|v| v.contains(&index)).unwrap_or(false);
 
             let style = if self.highlighted == index {

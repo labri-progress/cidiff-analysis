@@ -14,7 +14,9 @@ use indicatif::ProgressStyle;
 use rand::{Rng, SeedableRng};
 use ratatui::{
     crossterm::{
-        event::{self, DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture},
+        event::{
+            self, DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture,
+        },
         execute,
     },
     DefaultTerminal,
@@ -59,6 +61,7 @@ fn run(
     log_paths.sort();
     let mut clipboard = ClipboardContext::new().unwrap();
     let mut state: Box<dyn AppState> = Box::new(FileChooserState::new(&log_paths, annotations));
+    let mut last_position = (0, 0);
     loop {
         let completer_frames = terminal.draw(|frame| {
             state.draw(frame);
@@ -69,15 +72,20 @@ fn run(
         match what_to_do {
             WhatToDo::Exit => return Ok(state.annotations()),
             WhatToDo::StayOnSameState => {}
-            WhatToDo::OpenFile(log_path) => {
+            WhatToDo::OpenFile((start, path_index)) => {
+                last_position = (start, path_index);
                 state = Box::new(FileOpenedState::new(
                     dataset_path,
-                    log_path,
+                    log_paths[path_index].to_string(),
                     state.annotations(),
                 ));
             }
             WhatToDo::ListDir => {
-                state = Box::new(FileChooserState::new(&log_paths, state.annotations()));
+                state = Box::new(
+                    FileChooserState::new(&log_paths, state.annotations())
+                        .start(last_position.0)
+                        .highlighted(last_position.1),
+                );
             }
         }
     }
@@ -86,7 +94,7 @@ fn run(
 enum WhatToDo {
     Exit,
     StayOnSameState,
-    OpenFile(String),
+    OpenFile((usize, usize)),
     ListDir,
 }
 

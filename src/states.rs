@@ -2,14 +2,12 @@ use std::{collections::HashMap, fs, path::Path, usize};
 
 use copypasta::{ClipboardContext, ClipboardProvider};
 use ratatui::{
-    crossterm::event::{
-        Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind,
-    },
-    layout::{Alignment, Constraint, Layout, Margin, Rect},
+    crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Style},
     symbols::{border, scrollbar},
     text::{Line, Span},
-    widgets::{Block, Paragraph, Scrollbar, ScrollbarState},
+    widgets::{block::Title, Block, Paragraph, Scrollbar, ScrollbarState},
     Frame,
 };
 
@@ -45,6 +43,16 @@ impl<'a> FileChooserState<'a> {
             annotations,
         }
     }
+
+    pub fn start(mut self, start: usize) -> Self {
+        self.start = start;
+        self
+    }
+
+    pub fn highlighted(mut self, highlighted: usize) -> Self {
+        self.highlighted = highlighted;
+        self
+    }
 }
 
 impl<'a> AppState for FileChooserState<'a> {
@@ -75,10 +83,23 @@ impl<'a> AppState for FileChooserState<'a> {
                 KeyCode::Char('y') => {
                     let _ = clipboard.set_contents(self.log_paths[self.highlighted].to_string());
                 }
-                KeyCode::Enter => {
-                    return WhatToDo::OpenFile(self.log_paths[self.highlighted].to_string())
-                }
+                KeyCode::Enter => return WhatToDo::OpenFile((self.start, self.highlighted)),
                 _ => (),
+            },
+            Event::Mouse(mouse) => match mouse.kind {
+                MouseEventKind::ScrollUp => {
+                    if self.start >= 2 {
+                        self.start = self.start.saturating_sub(2);
+                        self.highlighted = self.highlighted.saturating_sub(2);
+                    }
+                }
+                MouseEventKind::ScrollDown => {
+                    if self.start + 2 + area.height as usize - 4 < self.log_paths.len() {
+                        self.start += 2;
+                        self.highlighted += 2;
+                    }
+                }
+                _ => {}
             },
             _ => {}
         }
@@ -107,7 +128,8 @@ impl<'a> AppState for FileChooserState<'a> {
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
             .symbols(scrollbar::VERTICAL);
         let mut scrollbar_state =
-            ScrollbarState::new(self.log_paths.len()).position(self.highlighted);
+            ScrollbarState::new(self.log_paths.len() - files_areas.height as usize)
+                .position(self.start);
         frame.render_stateful_widget(
             scrollbar,
             files_areas.inner(Margin {
@@ -116,7 +138,33 @@ impl<'a> AppState for FileChooserState<'a> {
             }),
             &mut scrollbar_state,
         );
+
         let bottom_area = Rect::new(area.x, area.y + area.height - 3, area.width, 3);
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Percentage(15), Constraint::Percentage(85)])
+            .split(bottom_area);
+        let n = self.annotations.keys().len();
+        let color = if n < 25 {
+            Color::Red
+        } else if n < 50 {
+            Color::Yellow
+        } else if n < 75 {
+            Color::Cyan
+        } else {
+            Color::Green
+        };
+        let completion = Line::from(vec![Span::styled(
+            format!("{}/100", n),
+            Style::default().fg(color),
+        )]);
+        let completion_paragraph = Paragraph::new(completion)
+            .block(
+                Block::bordered()
+                    .title(Title::from("Completion").alignment(Alignment::Center))
+                    .border_set(border::THICK),
+            )
+            .alignment(Alignment::Center);
         let instructions = Line::from(vec![
             Span::raw("Open File "),
             Span::styled("<Enter>", Style::default().fg(Color::Blue)),
@@ -131,12 +179,13 @@ impl<'a> AppState for FileChooserState<'a> {
             Span::styled("<q>", Style::default().fg(Color::Blue)),
         ]);
         let instruction_block = Block::bordered()
-            .title("Instructions")
+            .title(Title::from("Instructions").alignment(Alignment::Center))
             .border_set(border::THICK);
         let instruction_paragraph = Paragraph::new(instructions)
             .block(instruction_block)
             .alignment(Alignment::Center);
-        frame.render_widget(instruction_paragraph, bottom_area);
+        frame.render_widget(completion_paragraph, layout[0]);
+        frame.render_widget(instruction_paragraph, layout[1]);
     }
 
     fn annotations(&self) -> HashMap<String, Vec<usize>> {
@@ -175,6 +224,18 @@ impl FileOpenedState {
 
 impl AppState for FileOpenedState {
     fn handle_input(&mut self, area: Rect, e: &Event, _: &mut ClipboardContext) -> WhatToDo {
+        let mut toggle = || {
+            self.annotations
+                .entry(self.log_path.clone())
+                .and_modify(|v| {
+                    if v.contains(&self.highlighted) {
+                        v.remove(v.iter().position(|x| x == &self.highlighted).unwrap());
+                    } else {
+                        v.push(self.highlighted)
+                    }
+                })
+                .or_insert(vec![self.highlighted]);
+        };
         match e {
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char('q') => {
@@ -189,7 +250,15 @@ impl AppState for FileOpenedState {
                     return WhatToDo::ListDir;
                 }
                 KeyCode::Char('j') => self.highlighted += 1,
+                KeyCode::Char('J') => {
+                    toggle();
+                    self.highlighted += 1;
+                }
                 KeyCode::Char('k') => self.highlighted = self.highlighted.saturating_sub(1),
+                KeyCode::Char('K') => {
+                    toggle();
+                    self.highlighted = self.highlighted.saturating_sub(1);
+                }
                 KeyCode::Char('l') => self.line_start += 1,
                 KeyCode::Char('L') => self.line_start += 10,
                 KeyCode::Char('h') => self.line_start = self.line_start.saturating_sub(1),
@@ -263,7 +332,9 @@ impl AppState for FileOpenedState {
 
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
             .symbols(scrollbar::VERTICAL);
-        let mut scrollbar_state = ScrollbarState::new(self.lines.len()).position(self.highlighted);
+        let mut scrollbar_state =
+            ScrollbarState::new(self.lines.len() - widget_area.height as usize)
+                .position(self.start);
         frame.render_stateful_widget(
             scrollbar,
             widget_area.inner(Margin {
@@ -276,7 +347,7 @@ impl AppState for FileOpenedState {
         let bottom_area = Rect::new(area.x, area.y + area.height - 3, area.width, 3);
         let layout = Layout::default()
             .direction(ratatui::layout::Direction::Horizontal)
-            .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+            .constraints(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
             .split(bottom_area);
 
         let status_block = Block::bordered().title("Status").border_set(border::THICK);
@@ -291,13 +362,16 @@ impl AppState for FileOpenedState {
         frame.render_widget(status, layout[0]);
 
         let instructions = Line::from(vec![
-            Span::raw("Toggle select "),
+            Span::raw("Toggle line "),
             Span::styled("<Space>", Style::default().fg(Color::Blue)),
             Span::raw(" | Move "),
             Span::styled("<h> ", Style::default().fg(Color::Blue)),
             Span::styled("<j> ", Style::default().fg(Color::Blue)),
             Span::styled("<k> ", Style::default().fg(Color::Blue)),
             Span::styled("<l>", Style::default().fg(Color::Blue)),
+            Span::raw(" | Toggle & move "),
+            Span::styled("<J> ", Style::default().fg(Color::Blue)),
+            Span::styled("<K> ", Style::default().fg(Color::Blue)),
             Span::raw(" | Top "),
             Span::styled("<g>", Style::default().fg(Color::Blue)),
             Span::raw(" | Bottom "),
