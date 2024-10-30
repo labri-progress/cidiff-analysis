@@ -26,13 +26,17 @@ use states::{AppState, FileChooserState, FileOpenedState};
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// The path of the dataset
     dataset: String,
+    /// The file to save the annotations to
+    #[arg(short, long, default_value_t = String::from("annotations.toml"))]
+    output: String
 }
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
     let log_paths = list_log_paths(&args.dataset);
-    let annotations = load_annotations("annotations.toml");
+    let annotations = load_annotations(&args.output);
     let mut terminal = ratatui::init();
     execute!(std::io::stdout(), EnableFocusChange, EnableMouseCapture)?;
     terminal.clear()?;
@@ -40,7 +44,7 @@ fn main() -> io::Result<()> {
     execute!(std::io::stdout(), DisableFocusChange, DisableMouseCapture)?;
     match app_result {
         Ok(annotation) => {
-            save_annotations("annotations.toml", annotation);
+            save_annotations(&args.output, annotation);
             ratatui::restore();
             Ok(())
         }
@@ -141,7 +145,7 @@ fn load_annotations(filename: &str) -> HashMap<String, Vec<usize>> {
 
 /// Save the annotations to the give file
 fn save_annotations(filename: &str, annotations: HashMap<String, Vec<usize>>) {
-    if let Ok(content) = toml::to_string_pretty(&annotations) {
+    if let Ok(content) = toml::to_string(&annotations) {
         let _ = fs::write(filename, content);
     }
 }

@@ -10,6 +10,7 @@ use ratatui::{
     widgets::{block::Title, Block, Paragraph, Scrollbar, ScrollbarState},
     Frame,
 };
+use regex::Regex;
 
 use crate::{
     widgets::{LogFileWdiget, PathListWidget},
@@ -202,6 +203,22 @@ pub struct FileOpenedState {
     annotations: HashMap<String, Vec<usize>>,
 }
 
+fn parse_file(file_content: String) -> Vec<String> {
+    let timestamp_regex =
+        Regex::new(r"(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z ?)?(.*)").unwrap();
+    let ansi_color_regex = Regex::new(r"\x1b?\[(?:\d\d?)?(?:;\d\d?)*m").unwrap();
+    let mut lines = vec![];
+    for line in file_content.lines() {
+        let caps = timestamp_regex.captures(line).unwrap();
+        let content = &caps[1];
+        let cleaned = ansi_color_regex.replace_all(content, "");
+        if !cleaned.trim().is_empty() {
+            lines.push(cleaned.to_string());
+        }
+    }
+    lines
+}
+
 impl FileOpenedState {
     pub fn new(
         dataset_path: &str,
@@ -209,7 +226,7 @@ impl FileOpenedState {
         annotations: HashMap<String, Vec<usize>>,
     ) -> Self {
         let lines = fs::read_to_string(Path::new(dataset_path).join(&log_path).join("failure.log"))
-            .map(|s| s.lines().map(|s| s.to_string()).collect::<Vec<String>>())
+            .map(parse_file)
             .unwrap_or_default();
         Self {
             start: 0,
@@ -253,11 +270,13 @@ impl AppState for FileOpenedState {
                 KeyCode::Char('J') => {
                     toggle();
                     self.highlighted += 1;
+                    self.start += 1;
                 }
                 KeyCode::Char('k') => self.highlighted = self.highlighted.saturating_sub(1),
                 KeyCode::Char('K') => {
                     toggle();
                     self.highlighted = self.highlighted.saturating_sub(1);
+                    self.start = self.start.saturating_sub(1);
                 }
                 KeyCode::Char('l') => self.line_start += 1,
                 KeyCode::Char('L') => self.line_start += 10,
