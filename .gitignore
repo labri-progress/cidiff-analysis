@@ -1,3 +1,5 @@
 target/
 protocol.pdf
 annotations.toml
+annotations.csv
+paths.txt

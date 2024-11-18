@@ -3,8 +3,8 @@ mod widgets;
 
 use std::{
     collections::HashMap,
-    fs::{self, DirEntry},
-    io,
+    fs::{self, DirEntry, File},
+    io::{self, BufWriter, Write},
     path::{Path, PathBuf},
 };
 
@@ -30,7 +30,7 @@ struct Args {
     dataset: String,
     /// The file to save the annotations to
     #[arg(short, long, default_value_t = String::from("annotations.toml"))]
-    output: String
+    output: String,
 }
 
 fn main() -> io::Result<()> {
@@ -132,6 +132,17 @@ fn list_log_paths(dataset_path: &str) -> Vec<PathBuf> {
             paths.push(p.to_path_buf());
         }
     }
+    let f = File::options()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open("paths.txt")
+        .unwrap();
+    let mut writer = BufWriter::new(f);
+    for ele in paths.iter() {
+        let _ = writeln!(writer, "{}", ele.to_str().unwrap());
+    }
+    let _ = writer.flush();
     paths
 }
 
