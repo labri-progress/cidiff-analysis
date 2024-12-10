@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fs, path::Path, usize};
 
+use apollo::parse_file;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind},
@@ -201,22 +202,6 @@ pub struct FileOpenedState {
     log_path: String,
     lines: Vec<String>,
     annotations: HashMap<String, Vec<usize>>,
-}
-
-fn parse_file(file_content: String) -> Vec<String> {
-    let timestamp_regex =
-        Regex::new(r"(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z ?)?(.*)").unwrap();
-    let ansi_color_regex = Regex::new(r"\x1b?\[(?:\d\d?)?(?:;\d\d?)*m").unwrap();
-    let mut lines = vec![];
-    for line in file_content.lines() {
-        let caps = timestamp_regex.captures(line).unwrap();
-        let content = &caps[1];
-        let cleaned = ansi_color_regex.replace_all(content, "");
-        if !cleaned.trim().is_empty() {
-            lines.push(cleaned.to_string());
-        }
-    }
-    lines
 }
 
 impl FileOpenedState {
