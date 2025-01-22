@@ -8,6 +8,7 @@ use clap::{command, Parser};
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
+/// Mean length of the logs (in word count)
 struct Args {
     /// The path of the dataset
     dataset: String,

@@ -18,7 +18,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout, Margin, Rect},
     style::{Color, Style, Stylize},
     symbols::{border, scrollbar},
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{block::Title, Block, Paragraph, Scrollbar, ScrollbarState, Widget},
     DefaultTerminal, Frame,
 };
@@ -34,20 +34,91 @@ struct Args {
     algos_path: String,
     /// The path to the chatgpt annotation csv
     gpt_path: String,
+    /// The merged path
+    #[arg(short, long)]
+    merged_path: Option<String>,
+    #[arg(short, long)]
+    drain_path: Option<String>,
 }
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
     let log_paths = list_log_paths(&args.dataset);
-    let annotations = load_selections(args.human_path, args.algos_path, args.gpt_path);
+
+    let annotations = if let Some(path) = args.merged_path {
+        load_merged_selections(path)
+    } else {
+        load_selections(args.human_path, args.algos_path, args.gpt_path)
+    };
+    let drain = load_drain_result(args.drain_path.unwrap());
     println!("selection computed");
     let mut terminal = ratatui::init();
     execute!(std::io::stdout(), EnableFocusChange, EnableMouseCapture)?;
     terminal.clear()?;
-    run(terminal, &args.dataset, log_paths, annotations)?;
+    run(terminal, &args.dataset, log_paths, annotations, drain)?;
     execute!(std::io::stdout(), DisableFocusChange, DisableMouseCapture)?;
     ratatui::restore();
     Ok(())
+}
+
+fn load_drain_result(path: String) -> HashMap<String, HashMap<usize, (String, usize)>> {
+    // log -> index of lines with pattern
+    let mut reader = csv::ReaderBuilder::new()
+        .from_path(path)
+        .expect("impossible to read the drain result csv");
+    type Record = (String, usize, String, String, usize);
+    let mut map = HashMap::new();
+    #[allow(clippy::manual_flatten)]
+    for record in reader.deserialize::<Record>() {
+        if let Ok(record) = record {
+            //path,lineno,line,cluster,cluster_size
+            if record.4 > 1 {
+                map.entry(record.0)
+                    .and_modify(|m: &mut HashMap<usize, (String, usize)>| {
+                        m.insert(record.1, (record.3.clone(), record.4));
+                    })
+                    .or_insert(HashMap::from([(record.1, (record.3, record.4))]));
+            }
+        }
+    }
+    map
+}
+
+fn load_merged_selections(merged_path: String) -> HashMap<String, HashMap<usize, Vec<bool>>> {
+    let mut map = HashMap::new();
+    if let Ok(content) = fs::read_to_string(merged_path) {
+        let size = content.lines().count() - 1;
+        content.lines().skip(1).enumerate().for_each(|(i, line)| {
+            let s: Vec<&str> = line.split(",").collect();
+            let path = s[0];
+            let line: usize = s[2].parse().unwrap();
+            print!("\rreading line {}/{}", i, size);
+            map.entry(path.to_string())
+                .and_modify(|a: &mut HashMap<usize, Vec<bool>>| {
+                    let i = match s[1] {
+                        "human" => 0,
+                        "seed" => 1,
+                        "lcs" => 2,
+                        "gpt" => 3,
+                        "keyword" => 4,
+                        _ => 10,
+                    };
+                    a.entry(line).and_modify(|line| line[i] = true).or_insert(vec![
+                        i == 0,
+                        i == 1,
+                        i == 2,
+                        i == 3,
+                        i == 4,
+                    ]);
+                })
+                .or_insert(HashMap::from([(
+                    line,
+                    vec![i == 0, i == 1, i == 2, i == 3, i == 4],
+                )]));
+        });
+        println!();
+    }
+    map
 }
 
 fn load_selections(
@@ -63,13 +134,6 @@ fn load_selections(
             let s: Vec<&str> = line.split(",").collect();
             let path = s[0];
             let line: usize = s[2].parse().unwrap();
-            //{
-            //    Ok(l) => l,
-            //    Err(e) => {
-            //        eprintln!("error parsing `{}` from {}: {}", line, &human_path, e);
-            //        0
-            //    }
-            //};
             print!("\rreading line {}/{}", i, size);
             map.entry(path.to_string())
                 .and_modify(|a: &mut HashMap<usize, Vec<bool>>| {
@@ -115,7 +179,8 @@ fn load_selections(
         println!("reading gpt selection");
         content.lines().skip(1).enumerate().for_each(|(i, line)| {
             let s: Vec<&str> = line.split(",").collect();
-            let path = &s[0][..(s[0].len() - 12)];
+            //let path = &s[0][..(s[0].len() - 12)];
+            let path = s[0];
             let line: usize = s[2].parse().unwrap();
             print!("\rreading line {}/{}", i, size);
             map.entry(path.to_string())
@@ -143,6 +208,7 @@ fn run(
     dataset_path: &str,
     log_paths: Vec<PathBuf>,
     annotations: HashMap<String, HashMap<usize, Vec<bool>>>,
+    drain: HashMap<String, HashMap<usize, (String, usize)>>,
 ) -> io::Result<()> {
     let mut log_paths = log_paths
         .iter()
@@ -168,6 +234,7 @@ fn run(
                     dataset_path,
                     log_paths[path_index].to_string(),
                     annotations.get(log_paths[path_index]).unwrap().clone(),
+                    drain.get(log_paths[path_index]).unwrap().clone(),
                 ));
             }
             WhatToDo::ListDir => {
@@ -212,7 +279,7 @@ impl<'a> FileChooserState<'a> {
     }
 }
 
-impl<'a> AppState for FileChooserState<'a> {
+impl AppState for FileChooserState<'_> {
     fn handle_input(&mut self, area: Rect, e: &Event, clipboard: &mut ClipboardContext) -> WhatToDo {
         match e {
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
@@ -338,7 +405,7 @@ impl<'a> PathListWidget<'a> {
     }
 }
 
-impl<'a> Widget for PathListWidget<'a> {
+impl Widget for PathListWidget<'_> {
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer)
     where
         Self: Sized,
@@ -369,9 +436,16 @@ pub struct FileOpenedState {
     log_path: String,
     lines: Vec<String>,
     selections: HashMap<usize, Vec<bool>>,
+    drain: HashMap<usize, (String, usize)>,
+    show_drain: bool,
 }
 impl FileOpenedState {
-    pub fn new(dataset_path: &str, log_path: String, selections: HashMap<usize, Vec<bool>>) -> Self {
+    pub fn new(
+        dataset_path: &str,
+        log_path: String,
+        selections: HashMap<usize, Vec<bool>>,
+        drain: HashMap<usize, (String, usize)>,
+    ) -> Self {
         let lines = fs::read_to_string(Path::new(dataset_path).join(&log_path).join("failure.log"))
             .map(parse_file)
             .unwrap_or_default();
@@ -382,6 +456,8 @@ impl FileOpenedState {
             log_path,
             lines,
             selections,
+            drain,
+            show_drain: true,
         }
     }
 }
@@ -402,15 +478,18 @@ impl AppState for FileOpenedState {
                 KeyCode::Char('d') => {
                     if key.modifiers == KeyModifiers::CONTROL {
                         self.highlighted += (area.height / 2) as usize;
+                        self.start += (area.height / 2) as usize;
                     }
                 }
                 KeyCode::Char('u') => {
                     if key.modifiers == KeyModifiers::CONTROL {
                         self.highlighted = self.highlighted.saturating_sub((area.height as usize) / 2);
+                        self.start = self.start.saturating_sub((area.height as usize) / 2);
                     }
                 }
                 KeyCode::Char('g') => self.highlighted = 0,
                 KeyCode::Char('G') => self.highlighted = self.lines.len() - 1,
+                KeyCode::Char('p') => self.show_drain = !self.show_drain,
                 _ => (),
             },
             Event::Mouse(mouse) => match mouse.kind {
@@ -446,10 +525,14 @@ impl AppState for FileOpenedState {
         let area = frame.area();
 
         let widget_area = Rect::new(area.x, area.y, area.width, area.height - 3);
-        let widget = LogFileWdiget::new(&self.lines, self.selections.clone())
-            .start(self.start)
-            .line_start(self.line_start)
-            .highlighted(self.highlighted);
+        let widget = LogFileWdiget::new(
+            &self.lines,
+            self.selections.clone(),
+            self.drain.keys().map(|k| *k).collect(),
+        )
+        .start(self.start)
+        .line_start(self.line_start)
+        .highlighted(self.highlighted);
 
         frame.render_widget(widget, widget_area);
 
@@ -469,19 +552,23 @@ impl AppState for FileOpenedState {
         let bottom_area = Rect::new(area.x, area.y + area.height - 3, area.width, 3);
         let layout = Layout::default()
             .direction(ratatui::layout::Direction::Horizontal)
-            .constraints(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
+            .constraints(vec![
+                Constraint::Percentage(20),
+                Constraint::Percentage(30),
+                Constraint::Percentage(50),
+            ])
             .split(bottom_area);
 
-        let status_block = Block::bordered().title("Status").border_set(border::THICK);
-        let status_text = Line::from(vec![
-            Span::styled(&self.log_path[..], Style::default().fg(Color::Cyan)),
-            "  ".into(),
-            format!("{}", self.highlighted).into(),
-            "/".into(),
-            format!("{}", self.lines.len()).into(),
-        ]);
-        let status = Paragraph::new(status_text).block(status_block);
-        frame.render_widget(status, layout[0]);
+        let file_block = Block::bordered().title("File").border_set(border::THICK);
+        let file_text = Span::styled(&self.log_path[..], Style::default().fg(Color::Cyan));
+        let file_paragraph = Paragraph::new(file_text).block(file_block);
+        frame.render_widget(file_paragraph, layout[0]);
+
+        let symbols_block = Block::bordered().title("Symbols").border_set(border::THICK);
+        let symbols_text = Span::raw("☘ Seed | ⚐ Lcs | ⚙ Gpt | ⚷ Keyword | ✂ Parsed");
+        let symbols_paragraph = Paragraph::new(symbols_text).block(symbols_block);
+
+        frame.render_widget(symbols_paragraph, layout[1]);
 
         let instructions = Line::from(vec![
             Span::raw("Move "),
@@ -500,7 +587,21 @@ impl AppState for FileOpenedState {
         let instruction_paragraph = Paragraph::new(instructions)
             .block(instruction_block)
             .alignment(Alignment::Center);
-        frame.render_widget(instruction_paragraph, layout[1]);
+        frame.render_widget(instruction_paragraph, layout[2]);
+
+        if self.show_drain {
+            let pattern = match self.drain.get(&self.highlighted) {
+                Some((p, n)) => (&p[..], *n),
+                None => ("no pattern", 0),
+            };
+            let b = Block::bordered().title(format!("{} ({})", "pattern", pattern.1));
+            let t = Text::raw(pattern.0.to_string());
+            let w = (t.width() as u16).max(11);
+            let p = Paragraph::new(t).block(b);
+            let area = Rect::new(area.x + area.width - w - 4, area.y, w + 2, 3);
+            frame.render_widget(ratatui::widgets::Clear, area);
+            frame.render_widget(p, area);
+        }
     }
 }
 
@@ -510,16 +611,18 @@ pub struct LogFileWdiget<'a> {
     line_start: usize,
     highlighted: usize,
     selected: HashMap<usize, Vec<bool>>,
+    parsed: Vec<usize>,
 }
 
 impl<'a> LogFileWdiget<'a> {
-    pub fn new(lines: &'a Vec<String>, selected: HashMap<usize, Vec<bool>>) -> Self {
+    pub fn new(lines: &'a Vec<String>, selected: HashMap<usize, Vec<bool>>, parsed: Vec<usize>) -> Self {
         Self {
             lines,
             start: 0,
             line_start: 0,
             highlighted: 0,
             selected,
+            parsed,
         }
     }
 
@@ -539,7 +642,7 @@ impl<'a> LogFileWdiget<'a> {
     }
 }
 
-impl<'a> Widget for LogFileWdiget<'a> {
+impl Widget for LogFileWdiget<'_> {
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer)
     where
         Self: Sized,
@@ -558,19 +661,19 @@ impl<'a> Widget for LogFileWdiget<'a> {
 
             let selection = match &self.selected.get(&index) {
                 Some(s) => s,
-                None => &vec![false, false, false, false],
+                None => &vec![false, false, false, false, false],
             };
 
-            // fg blue if selected by gpt 
-            let style = if selection[3] {
-                style.fg(Color::Blue)
-            } else {
-                style
-            };
+            // if selected by human (groundtruth)
+            //let style = if selection[0] {
+            //    style.bg(Color::Blue)
+            //} else {
+            //    style
+            //};
 
-            // bg green if selected by gpt 
-            let style = if selection[0] {
-                style.bg(Color::Green)
+            // if selected by anyone
+            let style = if selection[1] || selection[2] || selection[3] || selection[4] {
+                style.fg(Color::Green)
             } else {
                 style
             };
@@ -586,16 +689,31 @@ impl<'a> Widget for LogFileWdiget<'a> {
                 } else {
                     Span::styled("   ", style)
                 },
-                Span::styled("[", style),
+                //Span::styled("[", style),
                 Span::styled(
-                    selection
-                        .iter()
-                        .map(|b| if *b { "✓" } else { " " })
-                        .collect::<String>(),
-                    style,
+                    [
+                        if selection[1] { "☘" } else { " " },
+                        if selection[2] { "⚐" } else { " " },
+                        if selection[3] { "⚙" } else { " " },
+                        if selection[4] { "⚷" } else { " " },
+                        if self.parsed.contains(&index) { "✂" } else { " " },
+                    ]
+                    .join(""),
+                    if selection.iter().all(|b| *b) {
+                        style.fg(Color::Yellow)
+                    } else {
+                        style
+                    },
                 ),
-                Span::styled("]", style),
-                Span::styled(&text, style),
+                Span::styled(" ", style),
+                Span::styled(
+                    &text,
+                    if selection[0] {
+                        style.bg(Color::Blue)
+                    } else {
+                        style
+                    },
+                ),
             ]);
             buf.set_line(area.x, area.y + i, &line, area.width);
         }
