@@ -77,7 +77,7 @@ cfd-go/tclb/run85-5,diff 74,alpha,alpha,alpha,beta
 apollographql/apollo-client-nextjs/run24-0,diff 75,beta,alpha,beta,beta
 prismicio/slice-machine/run1964-2,diff 76,alpha,alpha,alpha,beta
 rustcrypto/utils/run1479-2,diff 77,alpha,alpha,alpha,alpha
-ufbx/ufbx/run1143-0,diff 78,none,alpha,apha,beta
+ufbx/ufbx/run1143-0,diff 78,none,alpha,alpha,beta
 jest-community/jest-watch-typeahead/run549-6,diff 79,alpha,alpha,alpha,beta
 kovetskiy/mark/run289-0,diff 80,alpha,alpha,alpha,alpha
 copper-leaf/ballast/run37-0,diff 81,alpha,alpha,none,alpha
