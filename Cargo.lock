@@ -73,25 +73,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 
 [[package]]
-name = "apollo"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "copypasta",
- "csv",
- "indicatif",
- "linecount",
- "lru",
- "rand",
- "rand_chacha",
- "ratatui",
- "regex",
- "serde",
- "toml",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -182,6 +163,25 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "cidiff_annotations"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "copypasta",
+ "csv",
+ "indicatif",
+ "linecount",
+ "lru",
+ "rand",
+ "rand_chacha",
+ "ratatui",
+ "regex",
+ "serde",
+ "toml",
+]
 
 [[package]]
 name = "clap"

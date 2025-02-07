@@ -1,8 +1,4 @@
-use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader},
-    path::Path,
-};
+use std::{fs, path::Path};
 
 use clap::{command, Parser};
 

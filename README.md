@@ -21,3 +21,6 @@ cargo build --release
 
 The annotation is automatically saved in `annotation.toml`.
 
+# Artemis
+
+Artemis is a way to display the annotations

@@ -6,6 +6,7 @@ use std::{
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
+use regex::Regex;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -31,7 +32,7 @@ fn main() -> Result<()> {
         bar.inc(1);
         bar.set_message(path.to_str().unwrap().to_string());
         let log_path = dataset_path.join(&path).join("failure.log");
-        let log_content = apollo::parse_file(fs::read_to_string(&log_path).unwrap());
+        let log_content = parse_file(fs::read_to_string(&log_path).unwrap());
         for (i, line) in log_content.iter().enumerate() {
             let lower = line.to_lowercase();
             for keyword in KEYWORDS {
@@ -47,4 +48,21 @@ fn main() -> Result<()> {
     output.flush()?;
 
     Ok(())
+}
+
+/// Parse the file. By default, we remove the github timestamp at the begining of each line, and
+/// remove any ANSI escape code
+pub fn parse_file(file_content: String) -> Vec<String> {
+    let timestamp_regex = Regex::new(r"(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z ?)?(.*)").unwrap();
+    let ansi_color_regex = Regex::new(r"\x1b?\[(?:\d+)?(?:;\d+)*m").unwrap();
+    let mut lines = vec![];
+    for line in file_content.lines() {
+        let caps = timestamp_regex.captures(line).unwrap();
+        let content = &caps[1];
+        let cleaned = ansi_color_regex.replace_all(content, "");
+        if !cleaned.trim().is_empty() {
+            lines.push(cleaned.to_string());
+        }
+    }
+    lines
 }

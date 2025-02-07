@@ -11,6 +11,13 @@ pub struct PathListWidget<'a> {
     highlighted: usize,
     annotated: Vec<&'a str>,
 }
+pub struct LogFileWdiget<'a> {
+    lines: &'a Vec<String>,
+    start: usize,
+    line_start: usize,
+    highlighted: usize,
+    annotated: Option<&'a Vec<usize>>,
+}
 
 impl<'a> PathListWidget<'a> {
     pub fn new(files: &'a Vec<&'a str>) -> Self {
@@ -38,7 +45,7 @@ impl<'a> PathListWidget<'a> {
     }
 }
 
-impl<'a> Widget for PathListWidget<'a> {
+impl Widget for PathListWidget<'_> {
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer)
     where
         Self: Sized,
@@ -69,14 +76,6 @@ impl<'a> Widget for PathListWidget<'a> {
     }
 }
 
-pub struct LogFileWdiget<'a> {
-    lines: &'a Vec<String>,
-    start: usize,
-    line_start: usize,
-    highlighted: usize,
-    annotated: Option<&'a Vec<usize>>,
-}
-
 impl<'a> LogFileWdiget<'a> {
     pub fn new(lines: &'a Vec<String>, annotated: Option<&'a Vec<usize>>) -> Self {
         Self {
@@ -104,7 +103,7 @@ impl<'a> LogFileWdiget<'a> {
     }
 }
 
-impl<'a> Widget for LogFileWdiget<'a> {
+impl Widget for LogFileWdiget<'_> {
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer)
     where
         Self: Sized,
@@ -128,11 +127,7 @@ impl<'a> Widget for LogFileWdiget<'a> {
             } else {
                 style
             };
-            let style = if annotated {
-                style.bg(Color::Green)
-            } else {
-                style
-            };
+            let style = if annotated { style.bg(Color::Green) } else { style };
 
             let text: String = self.lines[index].chars().skip(self.line_start).collect();
             let line = Line::from(vec![

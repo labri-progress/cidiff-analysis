@@ -1,6 +1,13 @@
 use std::{collections::HashMap, fs, path::Path, usize};
 
-use apollo::parse_file;
+use crate::{
+    apollo::{
+        widget::{LogFileWdiget, PathListWidget},
+        State,
+    },
+    parse_file, WhatToDo,
+};
+
 use copypasta::{ClipboardContext, ClipboardProvider};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind},
@@ -11,32 +18,24 @@ use ratatui::{
     widgets::{block::Title, Block, Paragraph, Scrollbar, ScrollbarState},
     Frame,
 };
-use regex::Regex;
 
-use crate::{
-    widgets::{LogFileWdiget, PathListWidget},
-    WhatToDo,
-};
-
-pub trait AppState {
-    fn handle_input(
-        &mut self,
-        area: Rect,
-        event: &Event,
-        clipboard: &mut ClipboardContext,
-    ) -> WhatToDo;
-    fn draw(&self, frame: &mut Frame);
-    fn annotations(&self) -> HashMap<String, Vec<usize>>;
-}
-
-pub struct FileChooserState<'a> {
+pub struct FileChooser<'a> {
     start: usize,
     highlighted: usize,
     log_paths: &'a Vec<&'a str>,
     annotations: HashMap<String, Vec<usize>>,
 }
 
-impl<'a> FileChooserState<'a> {
+pub struct FileOpened {
+    start: usize,
+    line_start: usize,
+    highlighted: usize,
+    log_path: String,
+    lines: Vec<String>,
+    annotations: HashMap<String, Vec<usize>>,
+}
+
+impl<'a> FileChooser<'a> {
     pub fn new(log_paths: &'a Vec<&'a str>, annotations: HashMap<String, Vec<usize>>) -> Self {
         Self {
             start: 0,
@@ -57,13 +56,8 @@ impl<'a> FileChooserState<'a> {
     }
 }
 
-impl<'a> AppState for FileChooserState<'a> {
-    fn handle_input(
-        &mut self,
-        area: Rect,
-        e: &Event,
-        clipboard: &mut ClipboardContext,
-    ) -> WhatToDo {
+impl<'a> State for FileChooser<'a> {
+    fn handle_input(&mut self, area: Rect, e: &Event, clipboard: &mut ClipboardContext) -> WhatToDo {
         match e {
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char('q') => return WhatToDo::Exit,
@@ -76,8 +70,7 @@ impl<'a> AppState for FileChooserState<'a> {
                 }
                 KeyCode::Char('u') => {
                     if key.modifiers == KeyModifiers::CONTROL {
-                        self.highlighted =
-                            self.highlighted.saturating_sub((area.height as usize) / 2);
+                        self.highlighted = self.highlighted.saturating_sub((area.height as usize) / 2);
                     }
                 }
                 KeyCode::Char('g') => self.highlighted = 0,
@@ -130,8 +123,7 @@ impl<'a> AppState for FileChooserState<'a> {
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
             .symbols(scrollbar::VERTICAL);
         let mut scrollbar_state =
-            ScrollbarState::new(self.log_paths.len() - files_areas.height as usize)
-                .position(self.start);
+            ScrollbarState::new(self.log_paths.len() - files_areas.height as usize).position(self.start);
         frame.render_stateful_widget(
             scrollbar,
             files_areas.inner(Margin {
@@ -195,21 +187,8 @@ impl<'a> AppState for FileChooserState<'a> {
     }
 }
 
-pub struct FileOpenedState {
-    start: usize,
-    line_start: usize,
-    highlighted: usize,
-    log_path: String,
-    lines: Vec<String>,
-    annotations: HashMap<String, Vec<usize>>,
-}
-
-impl FileOpenedState {
-    pub fn new(
-        dataset_path: &str,
-        log_path: String,
-        annotations: HashMap<String, Vec<usize>>,
-    ) -> Self {
+impl FileOpened {
+    pub fn new(dataset_path: &str, log_path: String, annotations: HashMap<String, Vec<usize>>) -> Self {
         let lines = fs::read_to_string(Path::new(dataset_path).join(&log_path).join("failure.log"))
             .map(parse_file)
             .unwrap_or_default();
@@ -224,7 +203,7 @@ impl FileOpenedState {
     }
 }
 
-impl AppState for FileOpenedState {
+impl State for FileOpened {
     fn handle_input(&mut self, area: Rect, e: &Event, _: &mut ClipboardContext) -> WhatToDo {
         let mut toggle = || {
             self.annotations
@@ -274,8 +253,7 @@ impl AppState for FileOpenedState {
                 }
                 KeyCode::Char('u') => {
                     if key.modifiers == KeyModifiers::CONTROL {
-                        self.highlighted =
-                            self.highlighted.saturating_sub((area.height as usize) / 2);
+                        self.highlighted = self.highlighted.saturating_sub((area.height as usize) / 2);
                     }
                 }
                 KeyCode::Char('g') => self.highlighted = 0,
@@ -337,8 +315,7 @@ impl AppState for FileOpenedState {
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
             .symbols(scrollbar::VERTICAL);
         let mut scrollbar_state =
-            ScrollbarState::new(self.lines.len() - widget_area.height as usize)
-                .position(self.start);
+            ScrollbarState::new(self.lines.len() - widget_area.height as usize).position(self.start);
         frame.render_stateful_widget(
             scrollbar,
             widget_area.inner(Margin {
@@ -383,9 +360,7 @@ impl AppState for FileOpenedState {
             Span::raw(" | Return "),
             Span::styled("<q>", Style::default().fg(Color::Blue)),
         ]);
-        let instruction_block = Block::bordered()
-            .title("Instructions")
-            .border_set(border::THICK);
+        let instruction_block = Block::bordered().title("Instructions").border_set(border::THICK);
         let instruction_paragraph = Paragraph::new(instructions)
             .block(instruction_block)
             .alignment(Alignment::Center);
