@@ -1,14 +1,12 @@
 package com.github.cidiff.exp;
 
 import org.github.cidiff.Action;
-import org.github.cidiff.DrainData;
 import org.github.cidiff.Line;
 import org.github.cidiff.LogDiffer;
 import org.github.cidiff.LogParser;
 import org.github.cidiff.Metric;
 import org.github.cidiff.Options;
 import org.github.cidiff.Pair;
-import org.github.cidiff.parsers.DrainParser;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -29,39 +27,43 @@ public class Main {
 	public static void main(String[] args) throws IOException {
 		List<String> paths = new BufferedReader(new FileReader(PATHS)).lines().toList();
 		LogParser parser = LogParser.Type.GITHUB.construct();
-		LogParser parserDrain = LogParser.Type.DRAIN.construct();
 		LogDiffer differSeed = LogDiffer.Algorithm.SEED.construct();
 		LogDiffer differLCS = LogDiffer.Algorithm.LCS.construct();
 
 		Options optSeed = new Options();
 		Options optLCS = new Options().with(Options.METRIC, Metric.EQUALITY);
-		Options optDrain = new Options().with(Options.METRIC, Metric.DRAIN_JOCKER_YES);
+		Options optDrain = new Options().with(Options.METRIC, Metric.DRAINSIM);
 
-		BufferedWriter writer = new BufferedWriter(new FileWriter("result2.csv"));
+		BufferedWriter writer = new BufferedWriter(new FileWriter("selection.csv"));
 		writer.write("path,type,line\n");
 		for (String path : paths) {
+			// create a new drain parser every loop to reset its internal data (parsed lines tree)
 			System.out.print(path + " ");
 			List<Line> leftLines = parser.parse(DATASET + "/" + path + "/success.log", optSeed);
 			List<Line> rightLines = parser.parse(DATASET + "/" + path + "/failure.log", optSeed);
-			// DRAIN START
-			DrainParser drain = new DrainParser(4, 0.5f, 100);
-			drain.parse(Stream.concat(leftLines.stream().map(Line::value), rightLines.stream().map(Line::value)).toList());
-			DrainData.setup(drain);
-			// DRAIN END
 			diff(leftLines, rightLines, optSeed, differSeed, path, "seed", writer);
 			diff(leftLines, rightLines, optLCS, differLCS, path, "lcs", writer);
-			diff(leftLines, rightLines, optDrain, differSeed, path, "drain", writer);
-			bigramDiff(path, parserDrain, writer);
+			// bigram with raw lines
+			bigramDiff(leftLines, rightLines, path, "bigram-raw", writer);
+			// bigram with lines parsed by drain
+			LogParser parserDrain = LogParser.Type.DRAIN.construct();
+			parserDrain.parse(DATASET + "/" + path + "/success.log", optSeed);
+			rightLines = parserDrain.parse(DATASET + "/" + path + "/failure.log", optSeed);
+			// To replace the lines by their template, the parser must have the two logs to be able to find presumably correct templates.
+			// However, the first #parse() has only the first log. Now that both logs are inside it's internal tree, parse another time the first log
+			// This won't change anything about the templates.
+			leftLines = parserDrain.parse(DATASET + "/" + path + "/success.log", optSeed);
+			bigramDiff(leftLines, rightLines, path, "bigram-drain", writer);
+			// at that point, the drain parser should have the lines correctly parsed, so we should be able to use Drain#INSTANCE now
+			diff(leftLines, rightLines, optDrain, differSeed, path, "cidiff-drainsim", writer);
 			System.out.println();
 		}
 		writer.close();
 	}
 
-	private static void bigramDiff(String path, LogParser parser, BufferedWriter writer) {
-		System.out.print("bigram ");
-		Options opt = new Options();
-		List<Line> leftLines = parser.parse(DATASET + "/" + path + "/success.log", opt);
-		List<Line> rightLines = parser.parse(DATASET + "/" + path + "/failure.log", opt);
+
+	private static void bigramDiff(List<Line> leftLines, List<Line> rightLines, String path, String type, BufferedWriter writer) {
+		System.out.print(type + " ");
 		Set<Pair<String>> bigramsL = new HashSet<>();
 		Set<Pair<String>> bigramsR = new HashSet<>();
 		for (int i = 0; i < leftLines.size() - 1; i++) {
@@ -76,7 +78,7 @@ public class Main {
 		for (Line line : rightLines) {
 			if (bigrams.contains(line.value())) {
 				try {
-					writer.write("%s,bigram,%d%n".formatted(path, line.index()));
+					writer.write("%s,%s,%d%n".formatted(path, type, line.index()));
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}
