@@ -16,6 +16,7 @@ Generate the annotations csv for the following algorithms:
 Generate the annotations csv for the following algorithms:
 - human
 - keyword
+- gpt
 
 This project has also a TUI to annotate the logs by a human.
 

@@ -21,6 +21,16 @@ The annotation is automatically saved in `annotation.toml`.
 
 You can save the annotation as a csv file too with the flag `-t`/`--to-csv` (which you can use later in the visualisation)
 
+## GPT/Keyword annotations
+
+To annotate by gpt and keyword run the commands:
+```sh
+# gpt annotation
+cargo run --bin gpt
+# keyword annotation
+cargo run --bin keyword_search
+```
+
 ## Visualisation
 
 You can also visualise the annotations produced by the algorithms with:
