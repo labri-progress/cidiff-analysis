@@ -1,4 +1,4 @@
-package com.github.cidiff.exp;
+package org.github.cidiff.annotations;
 
 import org.github.cidiff.Action;
 import org.github.cidiff.Line;
@@ -21,10 +21,14 @@ import java.util.stream.Stream;
 
 public class Main {
 
-	public static final String PATHS = "/home/ketheroth/these/projects/apollo/paths.txt";
-	public static final String DATASET = "/home/ketheroth/these/datasets/moriconi";
-
 	public static void main(String[] args) throws IOException {
+		if (args.length != 2) {
+			System.out.println("Usage: java -jar exp.jar <dataset_path> <logs_path>");
+			return;
+		}
+		final String DATASET = args[0];
+		final String PATHS = args[1];
+
 		List<String> paths = new BufferedReader(new FileReader(PATHS)).lines().toList();
 		LogParser parser = LogParser.Type.GITHUB.construct();
 		LogDiffer differSeed = LogDiffer.Algorithm.SEED.construct();

@@ -21,6 +21,8 @@ The annotation is automatically saved in `annotation.toml`.
 
 You can save the annotation as a csv file too with the flag `-t`/`--to-csv` (which you can use later in the visualisation)
 
+It will also generate `paths.txt`, the list of 100 paths used to do the annotations.
+
 ## GPT/Keyword annotations
 
 To annotate by gpt and keyword run the commands:
@@ -30,6 +32,8 @@ cargo run --bin gpt
 # keyword annotation
 cargo run --bin keyword_search
 ```
+
+The gpt annotation needs an openai api key in the environment variable `OPENAI_KEY`.
 
 ## Visualisation
 
@@ -45,6 +49,5 @@ By default, the program will randomly select a list of 100 pair of logs from the
 However, you can give it a path to a file containing a list of path to use these instead of the random selection.
 
 ```sh
-# we're using 'ignored' as the dataset path, but it doesn't matter as it will not be used when '-p' is used
-cargo run -- -p <100_paths_file_path> ignored annotate
+cargo run -- -p <100_paths_file_path> <dataset_path> annotate
 ```

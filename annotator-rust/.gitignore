@@ -1,4 +1,11 @@
 target/
+.env
+
 protocol.pdf
-annotations.toml
 paths.txt
+annotations.toml
+annotations.csv
+gpt.csv
+keyword.csv
+generated/
+

@@ -1,8 +1,10 @@
 plugins {
     id 'java'
+    id 'com.gradleup.shadow' version '9.0.0-beta4'
+    id 'idea'
 }
 
-group = 'com.ketheroth.thesis'
+group = 'org.github.cidiff.annotations'
 version = '1.0-SNAPSHOT'
 
 repositories {
@@ -18,4 +20,20 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes(
+                "Main-Class": "org.github.cidiff.annotations.Main"
+        )
+    }
+}
+
+// IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
 }
