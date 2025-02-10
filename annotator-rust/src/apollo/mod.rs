@@ -2,7 +2,7 @@ use std::{collections::HashMap, io, path::PathBuf};
 
 use crate::{
     apollo::state::{FileChooser, FileOpened},
-    list_log_paths, load_annotations, save_annotations, WhatToDo,
+    load_annotations, save_annotations, WhatToDo,
 };
 use clap::Args;
 use copypasta::ClipboardContext;

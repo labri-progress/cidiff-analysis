@@ -1,4 +1,0 @@
-rootProject.name = 'apolloexp'
-
-include 'CiDiff'
-project(":CiDiff").projectDir = file("../../cidiff")
