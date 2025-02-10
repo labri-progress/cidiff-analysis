@@ -41,19 +41,20 @@ public class Main {
 			System.out.print(path + " ");
 			List<Line> leftLines = parser.parse(DATASET + "/" + path + "/success.log", optSeed);
 			List<Line> rightLines = parser.parse(DATASET + "/" + path + "/failure.log", optSeed);
-			diff(leftLines, rightLines, optSeed, differSeed, path, "seed", writer);
-			diff(leftLines, rightLines, optLCS, differLCS, path, "lcs", writer);
+			diff(leftLines, rightLines, optSeed, differSeed, path, "cidiff", writer);
+			diff(leftLines, rightLines, optLCS, differLCS, path, "lcs-diff", writer);
 			// bigram with raw lines
-			bigramDiff(leftLines, rightLines, path, "bigram-raw", writer);
+			bigramDiff(leftLines, rightLines, path, "bigram", writer);
 			// bigram with lines parsed by drain
 			LogParser parserDrain = LogParser.Type.DRAIN.construct();
+			// ignore the first parse on the left lines, because we don't have the templates correctly setup yet
 			parserDrain.parse(DATASET + "/" + path + "/success.log", optSeed);
-			rightLines = parserDrain.parse(DATASET + "/" + path + "/failure.log", optSeed);
+			List<Line> parsedRightLines = parserDrain.parse(DATASET + "/" + path + "/failure.log", optSeed);
 			// To replace the lines by their template, the parser must have the two logs to be able to find presumably correct templates.
-			// However, the first #parse() has only the first log. Now that both logs are inside it's internal tree, parse another time the first log
-			// This won't change anything about the templates.
-			leftLines = parserDrain.parse(DATASET + "/" + path + "/success.log", optSeed);
-			bigramDiff(leftLines, rightLines, path, "bigram-drain", writer);
+			// However, the first #parse() has only the first log. Now that both logs are inside it's internal tree, parse another time the first log.
+			// This won't change anything about the templates (supposedly).
+			List<Line> parsedLeftLines = parserDrain.parse(DATASET + "/" + path + "/success.log", optSeed);
+			bigramDiff(parsedLeftLines, parsedRightLines, path, "bigram-drain", writer);
 			// at that point, the drain parser should have the lines correctly parsed, so we should be able to use Drain#INSTANCE now
 			diff(leftLines, rightLines, optDrain, differSeed, path, "cidiff-drainsim", writer);
 			System.out.println();
