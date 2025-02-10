@@ -1,4 +1,4 @@
 rootProject.name = 'annotator-java'
 
 include 'CiDiff'
-project(":CiDiff").projectDir = file("../../../cidiff")
+project(":CiDiff").projectDir = file("cidiff")

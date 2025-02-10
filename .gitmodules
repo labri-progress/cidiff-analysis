@@ -1,0 +1,3 @@
+[submodule "annotator-java/cidiff"]
+	path = annotator-java/cidiff
+	url = git@github.com:labri-progress/cidiff.git
