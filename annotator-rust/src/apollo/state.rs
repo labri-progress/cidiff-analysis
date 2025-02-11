@@ -62,7 +62,9 @@ impl<'a> State for FileChooser<'a> {
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char('q') => return WhatToDo::Exit,
                 KeyCode::Char('j') => self.highlighted += 1,
+                KeyCode::Down => self.highlighted += 1,
                 KeyCode::Char('k') => self.highlighted = self.highlighted.saturating_sub(1),
+                KeyCode::Up => self.highlighted = self.highlighted.saturating_sub(1),
                 KeyCode::Char('d') => {
                     if key.modifiers == KeyModifiers::CONTROL {
                         self.highlighted += (area.height / 2) as usize;
@@ -231,12 +233,14 @@ impl State for FileOpened {
                     return WhatToDo::ListDir;
                 }
                 KeyCode::Char('j') => self.highlighted += 1,
+                KeyCode::Down => self.highlighted += 1,
                 KeyCode::Char('J') => {
                     toggle();
                     self.highlighted += 1;
                     self.start += 1;
                 }
                 KeyCode::Char('k') => self.highlighted = self.highlighted.saturating_sub(1),
+                KeyCode::Up => self.highlighted = self.highlighted.saturating_sub(1),
                 KeyCode::Char('K') => {
                     toggle();
                     self.highlighted = self.highlighted.saturating_sub(1);
