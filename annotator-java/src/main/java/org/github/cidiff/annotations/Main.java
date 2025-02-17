@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class Main {
@@ -64,8 +65,10 @@ public class Main {
 			System.out.println();
 		}
 		writer.close();
+		System.out.println();
+		System.out.println("======PARAMETER SENSIBILITY======");
+		parameterSensibility(DATASET, paths);
 	}
-
 
 	private static void bigramDiff(List<Line> leftLines, List<Line> rightLines, String path, String type, BufferedWriter writer) {
 		System.out.print(type + " ");
@@ -109,6 +112,42 @@ public class Main {
 			} catch (IOException ignored) {
 			}
 		});
+	}
+
+	public static void parameterSensibility(String dataset, List<String> paths) throws IOException {
+		LogParser parser = LogParser.Type.GITHUB.construct();
+		LogDiffer differ = LogDiffer.Algorithm.SEED.construct();
+
+		Options opt = new Options();
+
+		BufferedWriter writer = new BufferedWriter(new FileWriter("parameters.csv"));
+		writer.write("path,type,line\n");
+		int n = 0;
+		for (String path : paths) {
+			List<Line> leftLines = parser.parse(dataset + "/" + path + "/success.log", opt);
+			List<Line> rightLines = parser.parse(dataset + "/" + path + "/failure.log", opt);
+			for (double minSimilarity = 0.0; minSimilarity <= 1.05; minSimilarity += 0.1) {
+				for (double minQGramSimilarity = 0.0; minQGramSimilarity <= 1.05; minQGramSimilarity += 0.1) {
+					System.out.printf("\r %d/100 %s %.1f %.1f%n", n, path, minSimilarity, minQGramSimilarity);
+					Options options = new Options().with(Options.REWRITE_MIN, minSimilarity).with(Options.QGRAM_MIN, minQGramSimilarity);
+					Pair<List<Action>> diff = differ.diff(leftLines, rightLines, options);
+					List<Action> actions = diff.right();
+					double[] sims = new double[]{minSimilarity, minQGramSimilarity};
+					IntStream.range(0, actions.size())
+							.filter(i -> actions.get(i).type() == Action.Type.ADDED)
+							.distinct()
+							.forEach(i -> {
+								try {
+									writer.write("%s,l%.1f-q%.1f,%d%n".formatted(path, sims[0], sims[1], i));
+								} catch (IOException ignored) {
+								}
+							});
+				}
+			}
+			System.out.println();
+			++n;
+		}
+		writer.close();
 	}
 
 }
