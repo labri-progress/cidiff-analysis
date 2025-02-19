@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.ketheroth.thesis'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(":CiDiff")
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    compileOnly 'org.jetbrains:annotations:25.0.0'
+}
+
+test {
+    useJUnitPlatform()
+}
