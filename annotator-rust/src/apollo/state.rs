@@ -125,7 +125,8 @@ impl<'a> State for FileChooser<'a> {
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
             .symbols(scrollbar::VERTICAL);
         let mut scrollbar_state =
-            ScrollbarState::new(self.log_paths.len() - files_areas.height as usize).position(self.start);
+            ScrollbarState::new(self.log_paths.len().saturating_sub(files_areas.height as usize))
+                .position(self.start);
         frame.render_stateful_widget(
             scrollbar,
             files_areas.inner(Margin {
@@ -232,15 +233,13 @@ impl State for FileOpened {
                     }
                     return WhatToDo::ListDir;
                 }
-                KeyCode::Char('j') => self.highlighted += 1,
-                KeyCode::Down => self.highlighted += 1,
+                KeyCode::Char('j') | KeyCode::Down => self.highlighted += 1,
                 KeyCode::Char('J') => {
                     toggle();
                     self.highlighted += 1;
                     self.start += 1;
                 }
-                KeyCode::Char('k') => self.highlighted = self.highlighted.saturating_sub(1),
-                KeyCode::Up => self.highlighted = self.highlighted.saturating_sub(1),
+                KeyCode::Char('k') | KeyCode::Up => self.highlighted = self.highlighted.saturating_sub(1),
                 KeyCode::Char('K') => {
                     toggle();
                     self.highlighted = self.highlighted.saturating_sub(1);
@@ -319,7 +318,8 @@ impl State for FileOpened {
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
             .symbols(scrollbar::VERTICAL);
         let mut scrollbar_state =
-            ScrollbarState::new(self.lines.len() - widget_area.height as usize).position(self.start);
+            ScrollbarState::new(self.lines.len().saturating_sub(widget_area.height as usize))
+                .position(self.start);
         frame.render_stateful_widget(
             scrollbar,
             widget_area.inner(Margin {
