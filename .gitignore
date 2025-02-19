@@ -1,5 +1,3 @@
-img/
-
 ### Gradle ###
 .gradle
 build/
@@ -40,3 +38,13 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Rust ###
+target/
+
+### Generated files ###
+protocol.pdf
+annotations.toml
+annotations.csv
+paths.txt
+img/
