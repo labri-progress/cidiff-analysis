@@ -1,4 +1,4 @@
-rootProject.name = 'annotator-java'
+rootProject.name = 'benchmark'
 
 include 'CiDiff'
 project(":CiDiff").projectDir = file("../cidiff")

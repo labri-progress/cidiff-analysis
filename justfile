@@ -5,7 +5,6 @@ annotations dataset-path paths-file:
 	# human annotation is not in the default annotation because it needs human interaction
 	# gpt annotation is not in the default annotation recipe because you need an openai api key and it takes quite a long time to run
 
-
 # Compute java annotations
 [working-directory: 'annotator-java']
 annotation-java dataset-path paths-file:
@@ -26,6 +25,12 @@ annotation-gpt dataset-path paths-file:
 [working-directory: 'annotator-rust']
 annotation-human dataset-path:
 	cargo run -- {{dataset-path}} annotate -t
+
+# Run the benchmark on all the dataset
+[working-directory: 'benchmark']
+benchmark dataset-path:
+    ./gradlew shadowJar
+    java -jar build/libs/benchmark-1.0-SNAPSHOT-all.jar {{dataset-path}}
 
 # Merge csv produced by the annotations
 merge-csv:
