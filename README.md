@@ -30,6 +30,12 @@ The analysis code using the generated CSVs.
 * `csv/survey.csv`: user preferences between LCS-diff and CiDif on the 100 randomly drawn cases
 * `analysis.ipynb`: notebook containing all the analysis code
 
+### Viewers (`viewers-generator`)
+
+The code to generate the viewers for the user evaluations.
+
+It also contains the guide used for the evaluation.
+
 #### Usage
 
 We use `uv` to manage the python installation. Use `uv sync` in order to install a virtual environment with the good dependencies for the notebook.

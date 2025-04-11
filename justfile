@@ -32,6 +32,12 @@ benchmark dataset-path:
     ./gradlew shadowJar
     java -jar build/libs/benchmark-1.0-SNAPSHOT-all.jar {{dataset-path}}
 
+# Generate the viewers for the user evaluation
+[working-directory: 'viewers-generator']
+viewers dataset-path:
+	./gradlew shadowJar
+	java -jar build/libs/viewers-generator-1.0-SNAPSHOT-all.jar {{dataset-path}}
+
 # Merge csv produced by the annotations
 merge-csv:
 	./merge_csv.sh csv/annotations.csv annotator-java/selection.csv annotator-rust/gpt.csv annotator-rust/keyword.csv  annotator-rust/annotations.csv

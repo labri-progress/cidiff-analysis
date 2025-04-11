@@ -1,0 +1,35 @@
+plugins {
+	id "java"
+	id 'com.gradleup.shadow' version '9.0.0-beta4'
+	id 'idea'
+}
+
+group = "org.github.cidiff.viewer"
+version = "1.0-SNAPSHOT"
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation project(":CiDiff")
+	implementation 'com.github.spullara.mustache.java:compiler:0.9.10'
+}
+
+jar {
+	manifest {
+		attributes(
+				"Main-Class": "org.github.cidiff.viewer.Generate"
+		)
+	}
+}
+
+// IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
+idea {
+	module {
+		downloadSources = true
+		downloadJavadoc = true
+	}
+}
