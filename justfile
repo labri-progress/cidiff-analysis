@@ -24,7 +24,7 @@ annotation-gpt dataset-path paths-file:
 # Run human annotation tool
 [working-directory: 'annotator-rust']
 annotation-human dataset-path:
-	cargo run -- {{dataset-path}} annotate -t
+	cargo run --release -- {{dataset-path}} annotate -t
 
 # Run the benchmark on all the dataset
 [working-directory: 'benchmark']

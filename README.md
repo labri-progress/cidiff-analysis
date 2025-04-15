@@ -35,10 +35,3 @@ The analysis code using the generated CSVs.
 The code to generate the viewers for the user evaluations.
 
 It also contains the guide used for the evaluation.
-
-#### Usage
-
-We use `uv` to manage the python installation. Use `uv sync` in order to install a virtual environment with the good dependencies for the notebook.
-
-We recommend setting-up your notebook IDE to use this virtual environment to execute the notebook.
-
